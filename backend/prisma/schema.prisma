@@ -1,0 +1,233 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  WHATSAPP_COD
+}
+
+enum AdCampaignStatus {
+  DRAFT
+  READY
+  TESTING
+  WINNING
+  PAUSED
+}
+
+enum AdObjective {
+  SALES
+  MESSAGES
+  TRAFFIC
+  AWARENESS
+}
+
+enum CreativeType {
+  IMAGE
+  VIDEO
+}
+
+enum CompetitorAdPlatform {
+  META
+  TIKTOK
+  GOOGLE
+  INSTAGRAM
+  OTHER
+}
+
+enum CompetitorCreativeType {
+  IMAGE
+  VIDEO
+  CAROUSEL
+  TEXT
+}
+
+enum CompetitorAdStatus {
+  SAVED
+  ANALYZED
+  USED_AS_INSPIRATION
+}
+
+enum CompetitionLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+  products  Product[]
+}
+
+model Product {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  slug               String              @unique
+  description        String
+  shortDescription   String
+  price              Decimal             @db.Decimal(10, 2)
+  comparePrice       Decimal?            @db.Decimal(10, 2)
+  stock              Int
+  image              String
+  galleryImages      String[]            @default([])
+  categoryId         Int
+  featured           Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  category           Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  orderItems         OrderItem[]
+  adCampaigns        AdCampaign[]
+  competitorAds      CompetitorAd[]
+  competitorInsights CompetitorInsight[]
+}
+
+model Order {
+  id            Int           @id @default(autoincrement())
+  userId        Int?
+  customerName  String
+  phone         String
+  city          String
+  address       String
+  notes         String?
+  total         Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod @default(WHATSAPP_COD)
+  status        OrderStatus   @default(PENDING)
+  createdAt     DateTime      @default(now())
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items         OrderItem[]
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+}
+
+model AdCampaign {
+  id           Int              @id @default(autoincrement())
+  productId    Int
+  name         String
+  objective    AdObjective
+  budget       Decimal          @db.Decimal(10, 2)
+  city         String
+  ageMin       Int
+  ageMax       Int
+  gender       String
+  creativeType CreativeType
+  creativeUrl  String
+  adCopy       String
+  strategy     String
+  status       AdCampaignStatus @default(DRAFT)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  product      Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+}
+
+model Competitor {
+  id              String         @id @default(cuid())
+  name            String
+  websiteUrl      String?
+  facebookPageUrl String?
+  instagramUrl    String?
+  tiktokUrl       String?
+  niche           String?
+  country         String?
+  city            String?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  ads             CompetitorAd[]
+
+  @@index([name])
+}
+
+model CompetitorAd {
+  id                String                 @id @default(cuid())
+  competitorId      String
+  productId         Int?
+  platform          CompetitorAdPlatform
+  adUrl             String?
+  creativeType      CompetitorCreativeType
+  creativeUrl       String?
+  headline          String?
+  primaryText       String?
+  description       String?
+  callToAction      String?
+  offer             String?
+  priceMentioned    Float?
+  landingPageUrl    String?
+  detectedHook      String?
+  detectedPainPoint String?
+  detectedAngle     String?
+  trustElement      String?
+  urgencyElement    String?
+  strengths         String?
+  weaknesses        String?
+  inspirationNotes  String?
+  status            CompetitorAdStatus     @default(SAVED)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  competitor        Competitor             @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  product           Product?               @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([competitorId])
+  @@index([productId])
+  @@index([platform])
+  @@index([status])
+}
+
+model CompetitorInsight {
+  id                     String           @id @default(cuid())
+  productId              Int
+  summary                String
+  commonHooks            String
+  commonOffers           String
+  commonCallToActions    String
+  pricingObservations    String?
+  creativePatterns       String?
+  competitorWeaknesses   String?
+  recommendedPositioning String
+  recommendedAdCopies    Json
+  opportunityScore       Float            @default(0)
+  competitionLevel       CompetitionLevel @default(MEDIUM)
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  product                Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId])
+  @@index([competitionLevel])
+}
